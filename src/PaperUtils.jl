@@ -10,27 +10,42 @@ using JLD
 export autofig
 export savefigdata, loadfigdata
 
+# plot styling
+basefontsize = 10
+aspectratio = 1.5
+onecolwidth = 3.3  # inches
+twocolwidth = 6.9  # inches
+dpi = 150
+figsize = [1, 1/aspectratio] * dpi * onecolwidth
+bigfigsize = [1, 1/aspectratio] * dpi * twocolwidth
+plotfont = font("serif", basefontsize)
+
+
 # Common plot options
 figdir = "autofigs"
-plotfont = font("Fira Sans", 10)
-titlefont = font("Fira Sans", 14)
 plotopts = Dict(
     :linewidth=>2,
     :legend=>true,
     :tickfont=>plotfont,
     :legendfont=>plotfont,
     :guidefont=>plotfont,
-    :titlefont=>titlefont
+    :titlefont=>plotfont,
+    :size=>figsize
 )
 pyplot(;plotopts...)
-PyPlot.rc("font", family="serif")
 
 "Make a figure and save it to files"
-function autofig(plotfunc, name)
+function autofig(plotfunc, name; big=false)
     p = plotfunc()
+    suffix = "_fig"
+    if big
+        suffix = "_big" * suffix
+    end
     figloc = joinpath(figdir, name)
-    Plots.png(figloc)
-    Plots.pdf(figloc)
+    figname = figloc * suffix
+    Plots.png(figname)
+    Plots.pdf(figname)
+    Plots.svg(figname)
 
     p
 end
