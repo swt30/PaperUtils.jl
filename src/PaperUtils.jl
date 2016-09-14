@@ -43,9 +43,9 @@ function autofig(plotfunc, name; big=false)
     end
     figloc = joinpath(figdir, name)
     figname = figloc * suffix
-    Plots.png(figname)
-    Plots.pdf(figname)
     Plots.svg(figname)
+    Plots.pdf(figname)
+    Plots.png(figname)
 
     p
 end
