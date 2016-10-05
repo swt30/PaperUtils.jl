@@ -45,7 +45,6 @@ function autofig(plotfunc, name; big=false)
     figname = figloc * suffix
     Plots.svg(figname)
     Plots.pdf(figname)
-    Plots.png(figname)
 
     p
 end
