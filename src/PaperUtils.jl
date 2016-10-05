@@ -20,7 +20,6 @@ figsize = [1, 1/aspectratio] * dpi * onecolwidth
 bigfigsize = [1, 1/aspectratio] * dpi * twocolwidth
 plotfont = font("serif", basefontsize)
 
-
 # Common plot options
 figdir = "autofigs"
 plotopts = Dict(
@@ -44,7 +43,8 @@ function autofig(plotfunc, name; big=false)
     figloc = joinpath(figdir, name)
     figname = figloc * suffix
     Plots.svg(figname)
-    Plots.pdf(figname)
+    run(`cairosvg $figname.svg -o $figname.pdf`)
+    # run(`cairosvg $figname.svg -o $figname.png`)
 
     p
 end
