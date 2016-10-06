@@ -43,8 +43,7 @@ function autofig(plotfunc, name; big=false)
     figloc = joinpath(figdir, name)
     figname = figloc * suffix
     Plots.svg(figname)
-    run(`cairosvg $figname.svg -o $figname.pdf`)
-    # run(`cairosvg $figname.svg -o $figname.png`)
+    run(`rsvg-convert -f pdf -o $figname.pdf $figname.svg`)
 
     p
 end
