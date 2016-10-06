@@ -29,16 +29,18 @@ plotopts = Dict(
     :legendfont=>plotfont,
     :guidefont=>plotfont,
     :titlefont=>plotfont,
-    :size=>figsize
+    :size=>figsize,
+    :grid=>false
 )
 pyplot(;plotopts...)
 
 "Make a figure and save it to files"
 function autofig(plotfunc, name; big=false)
     p = plotfunc()
-    suffix = "_fig"
     if big
-        suffix = "_big" * suffix
+        suffix = "_big_fig"
+    else
+        suffix = "_fig"
     end
     figloc = joinpath(figdir, name)
     figname = figloc * suffix
