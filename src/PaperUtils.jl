@@ -1,68 +1,151 @@
 module PaperUtils
 
-using Plots
-export plot, plot!, png, pdf, pyplot
-using Reexport
-@reexport using LaTeXStrings
+import Plots
+import PlotUtils
+import ColorTypes
+import PyCall
+  PyCall.@pyimport gc as pygc
 
-using JLD
+export Normal, Full
+export autofig, placeholder, annotate_color!, seqcolors,
+       remove_ticklabels!
 
-export autofig
-export savefigdata, loadfigdata
+## Page layout settings
+# To describe the extent of a figure we define these terms
+@enum PlotSize Normal Full
+const plotsizes = (Normal, Full)
+"Indicates that a figure spans one column"
+Normal
+"Indicates that a figure spans the whole page"
+Full
 
-# plot styling
-basefontsize = 10
-aspectratio = 1.5
-onecolwidth = 3.3  # inches
-twocolwidth = 6.9  # inches
-dpi = 150
-figsize = [1, 1/aspectratio] * dpi * onecolwidth
-bigfigsize = [1, 1/aspectratio] * dpi * twocolwidth
-plotfont = font("serif", basefontsize)
+# DPI settings
+const dpi_default = 100
+const dpi_print = 300
+const dpi_scale = 170
 
-# Common plot options
-figdir = "autofigs"
-plotopts = Dict(
-    :linewidth=>2,
-    :legend=>true,
-    :tickfont=>plotfont,
-    :legendfont=>plotfont,
-    :guidefont=>plotfont,
-    :titlefont=>plotfont,
-    :size=>figsize,
-    :grid=>false
-)
-pyplot(;plotopts...)
+"Default plot aspect ratios"
+const aspectratio = Dict(
+  Normal => 1.5,
+  Full => 1.6 )
 
-"Make a figure and save it to files"
-function autofig(plotfunc, name; big=false)
+"Widths of the margin, body text, and full page in inches"
+const width_in = Dict(
+  Normal => 3.3,
+  Full => 6.9 )
+
+"Sizes of figures in pixels"
+const figsize = let
+  pixelsizes = map(plotsizes) do s
+    base_aspect = [1, 1/aspectratio[s]]
+    dpi_scaled = base_aspect * dpi_print
+    width_scaled = dpi_scaled * width_in[s]
+    whole_numbers = round(Int, width_scaled)
+  end
+
+  Dict(zip(plotsizes, pixelsizes))
+end
+
+## Plot display options
+# Font settings
+const fontstyle = "serif"
+const fontsize = Dict(
+  Normal => 10,
+  Full => 10 )
+const font = Dict((s, Plots.font(fontstyle, fontsize[s])) for s in plotsizes)
+const main_font_opts = Dict(
+  :tickfont => font[Normal],
+  :legendfont => font[Normal],
+  :guidefont => font[Normal],
+  :titlefont => font[Normal] )
+
+# Plot appearance
+const plotopts = Dict(
+  :linewidth => 1.5,
+  :grid => false,
+  :dpi => dpi_scale )
+Plots.pyplot(;plotopts...)
+
+# Folder to save generated figures to
+const figdir = "autofigs"
+
+""" Make a plot to go in the thesis and save it
+
+    plotfunc: The plotting function; should return a Plot object
+    name: The file name to save the figure as
+    s::PlotSize: One of `Normal` or `Full`. Indicates what size
+                 the figure should be saved as
+
+    vscale [optional, default=1]: Scale the plot to create more or less
+                                  vertical space
+    png [optional, default=1]: Save the plot as a png instead of a pdf """
+function autofig(plotfunc, name, s::PlotSize; vscale=1, savepng=false)
+  # workaround for python not closing files properly
+  pygc.collect()
+
+  # get the figure size and font size
+  width = figsize[s][1]
+  height = figsize[s][2] * vscale
+  Plots.default(;main_font_opts...)
+  if s == Full
+    name *= "_big_fig"
+  end
+
+  # plot the figure and save it to file
+  Plots.with(size=(width,height)) do
     p = plotfunc()
-    if big
-        suffix = "_big_fig"
+    figpath = joinpath(figdir, name)
+    if savepng
+      Plots.png(figpath)
     else
-        suffix = "_fig"
+      Plots.svg(figpath)
+      # bit of a workaround because the font doesn't embed
+      run(`rsvg-convert -f pdf -o $figpath.pdf $figpath.svg`)
+      rm("$figpath.svg")
     end
-    figloc = joinpath(figdir, name)
-    figname = figloc * suffix
-    Plots.svg(figname)
-    run(`rsvg-convert -f pdf -o $figname.pdf $figname.svg`)
-
     p
+  end
 end
 
-# Common data file options
-datadir = "figdata"
-
-"Save a dictionary of values into a JLD file"
-function savefigdata(id, datadict)
-    filename = joinpath(datadir, id) * ".jld"
-    save(filename, datadict)
+"Make a default plot"
+function placeholder()
+  Plots.plot([sin, cos], linspace(0, 2π), labels=["sin(x)" "cos(x)"],
+    xlabel="This is the x-axis",
+    ylabel="This is the y-axis",
+    title="Placeholder plot")
 end
 
-"Load a dictionary of values from a JLD file"
-function loadfigdata(id)
-    filename = joinpath(datadir, id) * ".jld"
-    load(filename)
+typealias PlotType Union{Plots.Plot, Plots.Subplot}
+
+"Annotate a plot with a colored label"
+function annotate_color!(x, y, text, color;
+                         position=:left, plotsize=Normal, rotation=0)
+  basefont = font[plotsize]
+  rot = deg2rad(rotation)
+  formatted_font = Plots.font(basefont, color, position, rot)
+  formatted_text = Plots.text(text, formatted_font)
+  Plots.annotate!(x, y, formatted_text)
+end
+function annotate_color!(p::PlotType, x, y, text, color;
+                         position=:left, plotsize=Normal, rotation=0)
+  basefont = font[plotsize]
+  rot = deg2rad(rotation)
+  formatted_font = Plots.font(basefont, color, position, rot)
+  formatted_text = Plots.text(text, formatted_font)
+  Plots.annotate!(p, x, y, formatted_text)
 end
 
-end # module PaperUtils
+"Remove the tick labels from a plot but leave the ticks and grid"
+function remove_ticklabels!(p::PlotType; x=true, y=true)
+  x && Plots.plot!(p; xformatter=_->"")
+  y && Plots.plot!(p; yformatter=_->"")
+  p
+end
+
+"Provide a palette of colors drawn sequentially from a color gradient"
+function seqcolors(name, N, start=0, stop=1)
+  grad = PlotUtils.cgrad(name)
+  colors = ColorTypes.RGBA{Float64}[grad[n] for n in linspace(start, stop, N)]
+end
+
+end # module ThesisUtils
